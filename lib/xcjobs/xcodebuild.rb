@@ -146,7 +146,7 @@ module XCJobs
     end
 
     private
-    
+
     def show_coverage(profdata_path, target_path)
       cmd = ['xcrun', 'llvm-cov', 'report']
       opts = ['-instr-profile', profdata_path, target_path, '-use-color=0']
@@ -156,15 +156,15 @@ module XCJobs
         puts line
       end
     end
-    
+
     def generate_gcov_file(profdata_path, target_path)
       puts 'Generage gcov file...'
       gcov_file = {}
       source_path = ''
-      
+
       cmd = ['xcrun', 'llvm-cov', 'show']
       opts = ['-instr-profile', profdata_path, target_path, '-use-color=0']
-      
+
       out, status = Open3.capture2(*(cmd + opts))
       out.lines.each do |line|
         match = /^(['"]?(?:\/[^\/]+)*['"]?):$/.match(line)
@@ -173,11 +173,11 @@ module XCJobs
           gcov_file[source_path] = []
           next
         end
-        
+
         match = /^[ ]*([0-9]+|[ ]+)\|[ ]*([0-9]+)\|(.*)$/.match(line)
         next unless match.to_a.count == 4
         count, number, text = match.to_a[1..3]
-        
+
         execution_count = case count.strip
             when ''
               '-'.rjust(5)
@@ -187,7 +187,7 @@ module XCJobs
             end
         gcov_file[source_path] << "#{execution_count.rjust(5)}:#{number.rjust(5)}:#{text}"
       end
-      
+
       gcov_file.each do |key, value|
         gcon_path = File.join(File.dirname(profdata_path), "#{File.basename(target_path)}.gcov")
         file = File::open(gcon_path, "w")
@@ -196,10 +196,10 @@ module XCJobs
         file.flush
       end
     end
-    
+
     def coverage_report(options)
       settings = build_settings(options)
-      
+
       targetSettings = settings.select { |key, _| settings[key]['PRODUCT_TYPE'] != 'com.apple.product-type.bundle.unit-test' }
       targetSettings.each do |target, settings|
         if settings['PRODUCT_TYPE'] == 'com.apple.product-type.framework'
@@ -213,20 +213,20 @@ module XCJobs
             target_path = File.join(target_dir, executable_name)
           end
         else
-          
+
         end
-        
+
         code_coverage_dir = settings['BUILD_DIR'].gsub('Build/Products', "Build/Intermediates/CodeCoverage/#{target}/")
         profdata_path = File.join(code_coverage_dir, 'Coverage.profdata')
-        
+
         show_coverage(profdata_path, target_path)
         generate_gcov_file(profdata_path, target_path)
       end
     end
-    
+
     def build_settings(options)
-      out, status = Open3.capture2(*(['xcodebuild', 'test'] + options + ['-showBuildSettings']))
-      
+      out, status = Open3.capture2(*(['xcodebuild', 'build', 'test'] + options + ['-showBuildSettings']))
+
       settings, target = {}, nil
       out.lines.each do |line|
         case line
@@ -251,11 +251,11 @@ module XCJobs
           add_build_setting('CODE_SIGN_IDENTITY', '""')
           add_build_setting('CODE_SIGNING_REQUIRED', 'NO')
         end
-        
+
         add_build_setting('GCC_SYMBOLS_PRIVATE_EXTERN', 'NO')
 
-        run(['xcodebuild', 'test'] + options)
-        
+        run(['xcodebuild', 'build', 'test'] + options)
+
         if coverage_enabled
           coverage_report(options)
         end
